@@ -1206,7 +1206,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             // Load reference files
             if (data.reference_files) {
                 initialReferenceFiles = data.reference_files;
-                populateCloneReferenceSelect();
+                // populateCloneReferenceSelect(); // Function doesn't exist, skipping
             }
 
             // Load presets (if any)
