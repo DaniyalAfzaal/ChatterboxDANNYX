@@ -631,6 +631,28 @@ document.addEventListener('DOMContentLoaded', async function () {
         showLoadingOverlay();
         const startTime = performance.now();
         const jsonData = getTTSFormData();
+        const textLength = jsonData.text ? jsonData.text.length : 0;
+
+        // Use async job queue for long text (>1000 chars)
+        const useLongJobQueue = textLength > 1000;
+
+        try {
+            if (useLongJobQueue) {
+                // Long text: use async job queue
+                await submitLongJobRequest(jsonData, startTime);
+            } else {
+                // Short text: use synchronous endpoint
+                await submitShortRequest(jsonData, startTime);
+            }
+        } catch (error) {
+            console.error('TTS Generation Error:', error);
+            showNotification(error.message || 'An unknown error occurred during TTS generation.', 'error');
+            isGenerating = false;
+            hideLoadingOverlay();
+        }
+    }
+
+    async function submitShortRequest(jsonData, startTime) {
         try {
             const response = await fetch(`${API_BASE_URL}/tts`, {
                 method: 'POST',
@@ -652,14 +674,118 @@ document.addEventListener('DOMContentLoaded', async function () {
             };
             initializeWaveSurfer(resultDetails.outputUrl, resultDetails);
             showNotification('Audio generated successfully!', 'success');
-        } catch (error) {
-            console.error('TTS Generation Error:', error);
-            showNotification(error.message || 'An unknown error occurred during TTS generation.', 'error');
         } finally {
             isGenerating = false;
             hideLoadingOverlay();
         }
     }
+
+    async function submitLongJobRequest(jsonData, startTime) {
+        // Submit job to async queue
+        const submitResponse = await fetch(`${API_BASE_URL}/jobs/submit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(jsonData)
+        });
+
+        if (!submitResponse.ok) {
+            const errorResult = await submitResponse.json().catch(() => ({ detail: `HTTP error ${submitResponse.status}` }));
+            throw new Error(errorResult.detail || 'Failed to submit job.');
+        }
+
+        const submitData = await submitResponse.json();
+        const jobId = submitData.job_id;
+
+        if (!jobId) {
+            throw new Error('No job ID returned from server.');
+        }
+
+        // Show job ID to user
+        showNotification(`Long audio job submitted! Job ID: ${jobId.substring(0, 16)}...`, 'info');
+        updateLoadingMessage(`Processing long audio...<br>Job ID: ${jobId.substring(0, 16)}...`);
+
+        // Poll for job completion
+        const maxPollTime = 30 * 60 * 1000; // 30 minutes
+        const pollInterval = 3000; // 3 seconds
+        const pollStartTime = Date.now();
+
+        while (true) {
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+
+            // Check if we've exceeded max poll time
+            if (Date.now() - pollStartTime > maxPollTime) {
+                throw new Error('Job timed out after 30 minutes. Check /manager page for status.');
+            }
+
+            // Poll status
+            const statusResponse = await fetch(`${API_BASE_URL}/jobs/${jobId}/status`);
+            if (!statusResponse.ok) {
+                throw new Error('Failed to check job status.');
+            }
+
+            const statusData = await statusResponse.json();
+            const status = statusData.status;
+
+            updateLoadingMessage(`Status: ${status}\nJob ID: ${jobId.substring(0, 16)}...`);
+
+            if (status === 'completed') {
+                // Download result
+                const resultResponse = await fetch(`${API_BASE_URL}/jobs/${jobId}/result`);
+                if (!resultResponse.ok) {
+                    throw new Error('Failed to download completed audio.');
+                }
+
+                const audioBlob = await resultResponse.blob();
+                const endTime = performance.now();
+                const genTime = ((endTime - startTime) / 1000).toFixed(2);
+                const filenameFromServer = resultResponse.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g, '') || 'generated_audio.wav';
+
+                const resultDetails = {
+                    outputUrl: URL.createObjectURL(audioBlob),
+                    filename: filenameFromServer,
+                    genTime: genTime,
+                    submittedVoiceMode: jsonData.voice_mode,
+                    submittedPredefinedVoice: jsonData.predefined_voice_id,
+                    submittedCloneFile: jsonData.reference_audio_filename,
+                    jobId: jobId
+                };
+
+                initializeWaveSurfer(resultDetails.outputUrl, resultDetails);
+                showNotification(`Long audio generated successfully! (${genTime}s)`, 'success');
+
+                isGenerating = false;
+                hideLoadingOverlay();
+                break;
+
+            } else if (status === 'failed') {
+                const error = statusData.error || 'Unknown error';
+                throw new Error(`Job failed: ${error}`);
+
+            } else if (status === 'processing' || status === 'queued') {
+                // Continue polling
+                continue;
+
+            } else {
+                throw new Error(`Unknown job status: ${status}`);
+            }
+        }
+    }
+
+    function updateLoadingMessage(message) {
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (loadingOverlay) {
+            let messageEl = loadingOverlay.querySelector('.loading-message');
+            if (!messageEl) {
+                messageEl = document.createElement('div');
+                messageEl.className = 'loading-message';
+                messageEl.style.cssText = 'margin-top: 20px; font-size: 14px; color: rgba(255,255,255,0.8); text-align: center; white-space: pre-line;';
+                const spinner = loadingOverlay.querySelector('.loading-spinner') || loadingOverlay;
+                spinner.appendChild(messageEl);
+            }
+            messageEl.textContent = message;
+        }
+    }
+
 
     function proceedWithSubmissionChecks() {
         const textContent = textArea.value.trim();
@@ -1028,6 +1154,71 @@ document.addEventListener('DOMContentLoaded', async function () {
                 predefinedVoiceRefreshButton.innerHTML = originalButtonIcon;
             }
         });
+    }
+
+    // --- Fetch Initial Data from Backend ---
+    async function fetchInitialData() {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/ui/initial-data`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+
+            // Store configuration
+            currentConfig = data.config || {};
+
+            // Load generation defaults into sliders
+            if (currentConfig.generation_defaults) {
+                const defaults = currentConfig.generation_defaults;
+
+                if (temperatureSlider && defaults.temperature !== undefined) {
+                    temperatureSlider.value = defaults.temperature;
+                    if (temperatureValueDisplay) temperatureValueDisplay.textContent = defaults.temperature.toFixed(2);
+                }
+
+                if (exaggerationSlider && defaults.exaggeration !== undefined) {
+                    exaggerationSlider.value = defaults.exaggeration;
+                    if (exaggerationValueDisplay) exaggerationValueDisplay.textContent = defaults.exaggeration.toFixed(2);
+                }
+
+                if (cfgWeightSlider && defaults.cfg_weight !== undefined) {
+                    cfgWeightSlider.value = defaults.cfg_weight;
+                    if (cfgWeightValueDisplay) cfgWeightValueDisplay.textContent = defaults.cfg_weight.toFixed(2);
+                }
+
+                if (speedFactorSlider && defaults.speed_factor !== undefined) {
+                    speedFactorSlider.value = defaults.speed_factor;
+                    if (speedFactorValueDisplay) speedFactorValueDisplay.textContent = defaults.speed_factor.toFixed(2);
+                }
+
+                if (seedInput && defaults.seed !== undefined) {
+                    seedInput.value = defaults.seed;
+                }
+            }
+
+            // Load predefined voices
+            if (data.predefined_voices) {
+                initialPredefinedVoices = data.predefined_voices;
+                populatePredefinedVoices();
+            }
+
+            // Load reference files
+            if (data.reference_files) {
+                initialReferenceFiles = data.reference_files;
+                populateCloneReferenceSelect();
+            }
+
+            // Load presets (if any)
+            if (data.presets) {
+                appPresets = data.presets;
+            }
+
+            console.log('Initial data loaded successfully');
+        } catch (error) {
+            console.error('Error fetching initial data:', error);
+            showNotification('Failed to load initial settings. Please refresh the page.', 'error');
+        }
     }
 
     await fetchInitialData();
