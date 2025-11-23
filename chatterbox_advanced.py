@@ -68,64 +68,127 @@ worker_image = (
     .pip_install("git+https://github.com/devnen/chatterbox.git")
     .run_commands("rm -rf /app && git clone --branch main https://github.com/DaniyalAfzaal/ChatterboxDANNYX /app")
     .add_local_dir("voices", remote_path="/app/voices")
+    .add_local_file("engine.py", "/app/engine.py")
+    .add_local_file("config.py", "/app/config.py")
 )
 
 web_image = (
     base_image
     .run_commands("rm -rf /app && git clone --branch main https://github.com/DaniyalAfzaal/ChatterboxDANNYX /app")
-    .run_commands("rm -rf /app && git clone --branch main https://github.com/DaniyalAfzaal/ChatterboxDANNYX /app")
+    .add_local_dir("ui", remote_path="/app/ui")
 )
 
 def _split_text_by_words(text: str, max_words: int) -> list:
-    """Split text into chunks at sentence boundaries, preserving punctuation."""
+    """
+    Split text into chunks at sentence boundaries, preserving ALL content.
+    Uses improved sentence detection and extensive logging to ensure no data loss.
+    """
     import re
     
-    # Split by sentence-ending punctuation while preserving it
-    # This regex splits after .!? followed by whitespace or end of string
-    sentences = re.split(r'(?<=[.!?])\s+', text)
-    sentences = [s.strip() for s in sentences if s.strip()]
+    print(f"\n{'='*60}")
+    print(f"CHUNKING STARTED")
+    print(f"{'='*60}")
+    print(f"Input text length: {len(text)} characters")
+    print(f"Input word count: {len(text.split())} words")
+    print(f"Max words per chunk: {max_words}")
+    print(f"{'='*60}\n")
+    
+    # More robust sentence splitting - handles multiple punctuation patterns
+    # Split on: period, exclamation, question mark - followed by space and capital letter OR end of string
+    sentence_pattern = r'(?<=[.!?])\s+(?=[A-Z])|(?<=[.!?])$'
+    raw_sentences = re.split(sentence_pattern, text)
+    
+    # Clean and filter sentences
+    sentences = []
+    for s in raw_sentences:
+        s = s.strip()
+        if s:
+            sentences.append(s)
+            print(f"Sentence {len(sentences)}: {len(s.split())} words - \"{s[:50]}...\"" if len(s) > 50 else f"Sentence {len(sentences)}: {len(s.split())} words - \"{s}\"")
+    
+    print(f"\nTotal sentences detected: {len(sentences)}\n")
     
     chunks = []
     current_chunk = []
     current_word_count = 0
     
-    for sentence in sentences:
+    for idx, sentence in enumerate(sentences, 1):
         sentence_words = len(sentence.split())
+        print(f"Processing sentence {idx}/{len(sentences)} ({sentence_words} words)")
         
+        # Can this sentence fit in current chunk?
         if current_word_count + sentence_words <= max_words:
             current_chunk.append(sentence)
             current_word_count += sentence_words
+            print(f"  → Added to current chunk (now {current_word_count}/{max_words} words)")
         else:
             # Save current chunk if it has content
             if current_chunk:
-                chunks.append(' '.join(current_chunk))
+                chunk_text = ' '.join(current_chunk)
+                chunks.append(chunk_text)
+                print(f"  → Saving chunk #{len(chunks)} with {len(chunk_text.split())} words")
+                current_chunk = []
+                current_word_count = 0
             
-            # If single sentence exceeds max_words, split it at word boundaries
+            # Handle oversized single sentence
             if sentence_words > max_words:
+                print(f"  ⚠️ Sentence too large ({sentence_words} > {max_words}), splitting at word boundaries")
                 words = sentence.split()
                 temp_chunk = []
                 temp_count = 0
+                
                 for word in words:
                     if temp_count + 1 <= max_words:
                         temp_chunk.append(word)
                         temp_count += 1
                     else:
+                        # Save this word-based chunk
                         if temp_chunk:
-                            chunks.append(' '.join(temp_chunk))
+                            chunk_text = ' '.join(temp_chunk)
+                            chunks.append(chunk_text)
+                            print(f"  → Saving word-split chunk #{len(chunks)} with {len(temp_chunk)} words")
                         temp_chunk = [word]
                         temp_count = 1
+                
+                # Don't forget remaining words
                 if temp_chunk:
-                    chunks.append(' '.join(temp_chunk))
-                current_chunk = []
-                current_word_count = 0
+                    chunk_text = ' '.join(temp_chunk)
+                    chunks.append(chunk_text)
+                    print(f"  → Saving final word-split chunk #{len(chunks)} with {len(temp_chunk)} words")
             else:
                 # Start new chunk with this sentence
                 current_chunk = [sentence]
                 current_word_count = sentence_words
+                print(f"  → Started new chunk with this sentence ({current_word_count} words)")
     
-    # Don't forget the last chunk
+    # CRITICAL: Don't forget the last chunk!
     if current_chunk:
-        chunks.append(' '.join(current_chunk))
+        chunk_text = ' '.join(current_chunk)
+        chunks.append(chunk_text)
+        print(f"\n→ Saving FINAL chunk #{len(chunks)} with {len(chunk_text.split())} words\n")
+    
+    # VERIFICATION
+    print(f"{'='*60}")
+    print(f"CHUNKING COMPLETE")
+    print(f"{'='*60}")
+    print(f"Total chunks created: {len(chunks)}")
+    
+    original_word_count = len(text.split())
+    chunks_word_count = sum(len(chunk.split()) for chunk in chunks)
+    
+    print(f"Original word count: {original_word_count}")
+    print(f"Chunks total words: {chunks_word_count}")
+    
+    if original_word_count != chunks_word_count:
+        print(f"❌ ERROR: WORD COUNT MISMATCH!")
+        print(f"   Lost {original_word_count - chunks_word_count} words!")
+        # Log each chunk for debugging
+        for i, chunk in enumerate(chunks, 1):
+            print(f"   Chunk {i}: {len(chunk.split())} words")
+    else:
+        print(f"✅ SUCCESS: All {original_word_count} words preserved!")
+    
+    print(f"{'='*60}\n")
     
     return chunks
 
@@ -259,14 +322,20 @@ def tts_worker(job_id: str, config: dict):
         print(f"👷 [Worker] Using voice: {voice_path}")
 
         gen_params = config.get("generation_params", {})
-        temperature = float(gen_params.get("temperature", 0.7))
+        temperature = float(config.get("temperature", gen_params.get("temperature", 0.7)))
+        exaggeration = float(config.get("exaggeration", gen_params.get("exaggeration", 0.5)))
+        cfg_weight = float(config.get("cfg_weight", gen_params.get("cfg_weight", 0.5)))
+        seed = int(config.get("seed", gen_params.get("seed", 0)))
+        speed_factor = float(config.get("speed_factor", gen_params.get("speed_factor", 1.0)))
         
         # CHUNKING FOR LONG TEXT
         # Split text into chunks of 200-250 words to avoid GPU memory issues
         word_count = len(text.split())
         print(f"👷 [Worker] Text word count: {word_count}")
         
-        CHUNK_SIZE_WORDS = 225  # Middle of 200-250 range
+        # Use chunk size from request, default to 225 if not provided
+        # This allows the UI slider to control the chunk size
+        CHUNK_SIZE_WORDS = int(config.get("chunk_size", 225))
         
         if word_count > CHUNK_SIZE_WORDS:
             # Long text - use chunking
@@ -284,7 +353,11 @@ def tts_worker(job_id: str, config: dict):
                 chunk_audio, chunk_sr = engine.synthesize(
                     chunk,
                     audio_prompt_path=str(voice_path),
-                    temperature=temperature
+                    temperature=temperature,
+                    exaggeration=exaggeration,
+                    cfg_weight=cfg_weight,
+                    seed=seed,
+                    speed_factor=speed_factor
                 )
                 
                 if chunk_audio is None:
@@ -315,7 +388,11 @@ def tts_worker(job_id: str, config: dict):
             audio_tensor, sr = engine.synthesize(
                 text, 
                 audio_prompt_path=str(voice_path), 
-                temperature=temperature
+                temperature=temperature,
+                exaggeration=exaggeration,
+                cfg_weight=cfg_weight,
+                seed=seed,
+                speed_factor=speed_factor
             )
             
             if audio_tensor is None:
@@ -337,7 +414,24 @@ def tts_worker(job_id: str, config: dict):
         
         sf.write(str(output_file), audio_np, sr)
         
-        print(f"👷 [Worker] Job completed. Saved to {output_file}")
+        # Handle format conversion
+        output_format = config.get("output_format", "wav").lower()
+        final_output_file = output_file
+        
+        if output_format == "mp3":
+            print(f"👷 [Worker] Converting to MP3...")
+            try:
+                from pydub import AudioSegment
+                audio = AudioSegment.from_wav(str(output_file))
+                mp3_file = job_dir / "output.mp3"
+                audio.export(str(mp3_file), format="mp3", bitrate="192k")
+                final_output_file = mp3_file
+                print(f"👷 [Worker] Converted to MP3: {final_output_file}")
+            except Exception as e:
+                print(f"❌ [Worker] MP3 conversion failed: {e}")
+                # Fallback to WAV is already saved
+        
+        print(f"👷 [Worker] Job completed. Saved to {final_output_file}")
         update_status("completed", 100.0, "Audio generation complete.")
 
         
@@ -439,11 +533,20 @@ async def get_status(job_id: str):
 @web_app.get("/jobs/{job_id}/result")
 async def get_result(job_id: str):
     """Download result file."""
-    output_file = Path(OUTPUT_DIR) / job_id / "output.wav"
+    job_dir = Path(OUTPUT_DIR) / job_id
     vol.reload()
-    if not output_file.exists():
-        return JSONResponse({"error": "Result not ready"}, status_code=404)
-    return FileResponse(output_file, media_type="audio/wav", filename=f"chatterbox_{job_id}.wav")
+    
+    # Check for MP3 first
+    mp3_file = job_dir / "output.mp3"
+    if mp3_file.exists():
+        return FileResponse(mp3_file, media_type="audio/mpeg", filename=f"chatterbox_{job_id}.mp3")
+        
+    # Check for WAV
+    wav_file = job_dir / "output.wav"
+    if wav_file.exists():
+        return FileResponse(wav_file, media_type="audio/wav", filename=f"chatterbox_{job_id}.wav")
+        
+    return JSONResponse({"error": "Result not ready"}, status_code=404)
 
 @web_app.get("/jobs/{job_id}/log")
 async def get_log(job_id: str):

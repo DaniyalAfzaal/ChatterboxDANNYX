@@ -11,7 +11,7 @@
       - styles.css: Pre-compiled stylesheet containing all Tailwind and custom component styles.
       - wavesurfer.min.js: The WaveSurfer.js library for audio visualization, served locally.
     -->
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=2">
     <script src="vendor/wavesurfer.min.js"></script>
 </head>
 
@@ -100,9 +100,9 @@
                                         class="text-sm font-medium text-slate-700 dark:text-slate-300 w-10 text-right tabular-nums">120</span>
                                 </div>
                             </div>
-                            <p id="chunk-explanation" class="text-xs text-slate-500 dark:text-slate-400 mb-6 hidden">
+                            <p id="chunk-explanation" class="text-xs text-slate-500 dark:text-slate-400 mt-2 hidden">
                                 Splitting is essential for longer texts like articles or audiobook chapters.
-                                Recommended chunk size: ~150-400 characters.
+                                Recommended chunk size: ~150-400 words.
                             </p>
 
                             <div class="mb-6">
@@ -486,7 +486,7 @@
         </div>
     </div>
 
-    <script src="script.js" defer></script>
+    <script src="script.js?v=7" defer></script>
 </body>
 
 </html>

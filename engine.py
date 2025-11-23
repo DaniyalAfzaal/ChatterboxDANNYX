@@ -5,6 +5,7 @@ import logging
 import random
 import numpy as np
 import torch
+import librosa
 from typing import Optional, Tuple
 from pathlib import Path
 
@@ -214,6 +215,7 @@ def synthesize(
     exaggeration: float = 0.5,
     cfg_weight: float = 0.5,
     seed: int = 0,
+    speed_factor: float = 1.0,
 ) -> Tuple[Optional[torch.Tensor], Optional[int]]:
     """
     Synthesizes audio from text using the loaded TTS model.
@@ -262,6 +264,26 @@ def synthesize(
         )
 
         # The ChatterboxTTS.generate method already returns a CPU tensor.
+        
+        # Apply speed factor if needed
+        if speed_factor != 1.0:
+            try:
+                logger.info(f"Applying speed factor: {speed_factor}")
+                # Convert to numpy
+                if isinstance(wav_tensor, torch.Tensor):
+                    wav_np = wav_tensor.detach().cpu().numpy().squeeze()
+                else:
+                    wav_np = wav_tensor
+                
+                # Time stretch (rate > 1.0 is faster)
+                wav_np = librosa.effects.time_stretch(wav_np, rate=speed_factor)
+                
+                # Convert back to tensor
+                wav_tensor = torch.from_numpy(wav_np).unsqueeze(0)
+            except Exception as e:
+                logger.error(f"Failed to apply speed factor: {e}", exc_info=True)
+                # Continue with original audio
+        
         return wav_tensor, chatterbox_model.sr
 
     except RuntimeError as e:

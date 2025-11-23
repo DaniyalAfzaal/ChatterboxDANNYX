@@ -1,0 +1,94 @@
+2025-11-21 18:53:47,215 - engine - INFO - TTS model is already loaded.
+2025-11-21 18:53:47,215 - engine - INFO - TTS model is already loaded.
+2025-11-21 18:53:48,008 - engine - INFO - Using default (potentially random) generation behavior as seed is 0.
+2025-11-21 18:53:48,008 - engine - INFO - Using default (potentially random) generation behavior as seed is 0.
+2025-11-21 18:53:48,009 - engine - ERROR - Error during TTS synthesis: [Errno 2] No such file or directory: '/app/voices/default_sample.wav'
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/librosa/core/audio.py", line 176, in load
+    y, sr_native = __soundfile_load(path, offset, duration, dtype)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/librosa/core/audio.py", line 209, in __soundfile_load
+    context = sf.SoundFile(path)
+              ^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/soundfile.py", line 690, in __init__
+    self._file = self._open(file, mode_int, closefd)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/soundfile.py", line 1265, in _open
+    raise LibsndfileError(err, prefix="Error opening {0!r}: ".format(self.name))
+soundfile.LibsndfileError: Error opening '/app/voices/default_sample.wav': System error.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/app/engine.py", line 256, in synthesize
+    wav_tensor = chatterbox_model.generate(
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/chatterbox/tts.py", line 217, in generate
+    self.prepare_conditionals(audio_prompt_path, exaggeration=exaggeration)
+  File "/usr/local/lib/python3.11/site-packages/chatterbox/tts.py", line 184, in prepare_conditionals
+    s3gen_ref_wav, _sr = librosa.load(wav_fpath, sr=S3GEN_SR)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/librosa/core/audio.py", line 184, in load
+    y, sr_native = __audioread_load(path, offset, duration, dtype)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/decorator.py", line 235, in fun
+    return caller(func, *(extras + args), **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/librosa/util/decorators.py", line 63, in __wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/librosa/core/audio.py", line 240, in __audioread_load
+    reader = audioread.audio_open(path)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/audioread/__init__.py", line 126, in audio_open
+    return BackendClass(path)
+           ^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/audioread/rawread.py", line 59, in __init__
+    self._fh = open(filename, 'rb')
+               ^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/app/voices/default_sample.wav'
+2025-11-21 18:53:48,009 - engine - ERROR - Error during TTS synthesis: [Errno 2] No such file or directory: '/app/voices/default_sample.wav'
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/librosa/core/audio.py", line 176, in load
+    y, sr_native = __soundfile_load(path, offset, duration, dtype)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/librosa/core/audio.py", line 209, in __soundfile_load
+    context = sf.SoundFile(path)
+              ^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/soundfile.py", line 690, in __init__
+    self._file = self._open(file, mode_int, closefd)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/soundfile.py", line 1265, in _open
+    raise LibsndfileError(err, prefix="Error opening {0!r}: ".format(self.name))
+soundfile.LibsndfileError: Error opening '/app/voices/default_sample.wav': System error.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/app/engine.py", line 256, in synthesize
+    wav_tensor = chatterbox_model.generate(
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/chatterbox/tts.py", line 217, in generate
+    self.prepare_conditionals(audio_prompt_path, exaggeration=exaggeration)
+  File "/usr/local/lib/python3.11/site-packages/chatterbox/tts.py", line 184, in prepare_conditionals
+    s3gen_ref_wav, _sr = librosa.load(wav_fpath, sr=S3GEN_SR)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/librosa/core/audio.py", line 184, in load
+    y, sr_native = __audioread_load(path, offset, duration, dtype)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/decorator.py", line 235, in fun
+    return caller(func, *(extras + args), **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/librosa/util/decorators.py", line 63, in __wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/librosa/core/audio.py", line 240, in __audioread_load
+    reader = audioread.audio_open(path)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/audioread/__init__.py", line 126, in audio_open
+    return BackendClass(path)
+           ^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/audioread/rawread.py", line 59, in __init__
+    self._fh = open(filename, 'rb')
+               ^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/app/voices/default_sample.wav'

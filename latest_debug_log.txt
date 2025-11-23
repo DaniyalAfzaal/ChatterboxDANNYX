@@ -1,0 +1,15 @@
+2025-11-21 19:15:02,957 - engine - INFO - CUDA requested and functional. Using CUDA.
+2025-11-21 19:15:02,957 - engine - INFO - CUDA requested and functional. Using CUDA.
+2025-11-21 19:15:02,958 - engine - INFO - Final device selection: cuda
+2025-11-21 19:15:02,958 - engine - INFO - Final device selection: cuda
+2025-11-21 19:15:02,958 - engine - INFO - Attempting to load model directly using from_pretrained (expected from Hugging Face repository: ResembleAI/chatterbox or library default).
+2025-11-21 19:15:02,958 - engine - INFO - Attempting to load model directly using from_pretrained (expected from Hugging Face repository: ResembleAI/chatterbox or library default).
+2025-11-21 19:15:23,662 - root - INFO - input frame rate=25
+2025-11-21 19:15:24,938 - engine - INFO - Successfully loaded TTS model using from_pretrained on cuda (expected from 'ResembleAI/chatterbox' or library default).
+2025-11-21 19:15:24,938 - engine - INFO - Successfully loaded TTS model using from_pretrained on cuda (expected from 'ResembleAI/chatterbox' or library default).
+2025-11-21 19:15:24,938 - engine - INFO - TTS Model loaded successfully on cuda. Engine sample rate: 24000 Hz.
+2025-11-21 19:15:24,938 - engine - INFO - TTS Model loaded successfully on cuda. Engine sample rate: 24000 Hz.
+2025-11-21 19:15:26,351 - engine - INFO - Using default (potentially random) generation behavior as seed is 0.
+2025-11-21 19:15:26,351 - engine - INFO - Using default (potentially random) generation behavior as seed is 0.
+2025-11-21 19:15:39,151 - root - WARNING - Reference mel length is not equal to 2 * reference token length.
+

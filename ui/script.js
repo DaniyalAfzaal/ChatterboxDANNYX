@@ -251,7 +251,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         loadInitialUiState();
         populatePredefinedVoices();
         populateReferenceFiles();
-        populatePresets();
+        // populatePresets();
         displayServerConfiguration();
         if (languageSelectContainer && currentConfig?.ui?.show_language_select === false) {
             languageSelectContainer.classList.add('hidden');
@@ -283,6 +283,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
             // This now ONLY sets values. It does NOT attach state-saving listeners.
             initializeApplication();
+            populatePresets();
 
         } catch (error) {
             console.error("Error fetching initial data:", error);
@@ -486,121 +487,11 @@ document.addEventListener('DOMContentLoaded', async function () {
         if (predefinedVoiceSelect) predefinedVoiceSelect.required = (selectedMode === 'predefined');
         if (cloneReferenceSelect) cloneReferenceSelect.required = (selectedMode === 'clone');
     }
-    voiceModeRadios.forEach(radio => radio.addEventListener('change', toggleVoiceOptionsDisplay));
 
     function toggleChunkControlsVisibility() {
         const isChecked = splitTextToggle ? splitTextToggle.checked : false;
         if (chunkSizeControls) chunkSizeControls.classList.toggle('hidden', !isChecked);
         if (chunkExplanation) chunkExplanation.classList.toggle('hidden', !isChecked);
-    }
-    if (splitTextToggle) toggleChunkControlsVisibility();
-
-    // --- Audio Player (WaveSurfer) ---
-    function initializeWaveSurfer(audioUrl, resultDetails = {}) {
-        if (wavesurfer) {
-            wavesurfer.unAll(); // Remove all event listeners before destroying
-            wavesurfer.destroy();
-            wavesurfer = null;
-        }
-        if (currentAudioBlobUrl) {
-            URL.revokeObjectURL(currentAudioBlobUrl);
-            currentAudioBlobUrl = null;
-        }
-        currentAudioBlobUrl = audioUrl;
-
-        // Ensure the container is clean or re-created
-        audioPlayerContainer.innerHTML = `
-            <div class="audio-player-card">
-                <div class="p-6 sm:p-8">
-                    <h2 class="card-header">Generated Audio</h2>
-                    <div class="mb-5"><div id="waveform" class="waveform-container"></div></div>
-                    <div class="audio-player-controls">
-                        <div class="audio-player-buttons">
-                            <button id="play-btn" class="btn-primary flex items-center" disabled>
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 mr-1.5"><path fill-rule="evenodd" d="M2 10a8 8 0 1 1 16 0 8 8 0 0 1-16 0Zm6.39-2.908a.75.75 0 0 1 .766.027l3.5 2.25a.75.75 0 0 1 0 1.262l-3.5 2.25A.75.75 0 0 1 8 12.25v-4.5a.75.75 0 0 1 .39-.658Z" clip-rule="evenodd" /></svg>
-                                <span>Play</span>
-                            </button>
-                            <a id="download-link" href="#" download="tts_output.wav" class="btn-secondary flex items-center opacity-50 pointer-events-none">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 mr-1.5">
-                                  <path fill-rule="evenodd" d="M10 3a.75.75 0 01.75.75v6.638l1.96-2.158a.75.75 0 111.08 1.04l-3.25 3.5a.75.75 0 01-1.08 0l-3.25-3.5a.75.75 0 111.08-1.04l1.96 2.158V3.75A.75.75 0 0110 3zM3.75 13a.75.75 0 01.75.75v.008c0 .69.56 1.25 1.25 1.25h8.5c.69 0 1.25-.56 1.25-1.25V13.75a.75.75 0 011.5 0v.008c0 1.518-1.232 2.75-2.75 2.75h-8.5C4.232 16.5 3 15.268 3 13.75v-.008A.75.75 0 013.75 13z" clip-rule="evenodd" />
-                                </svg>
-                                <span>Download</span>
-                            </a>
-                        </div>
-                        <div class="audio-player-info text-xs sm:text-sm">
-                            Mode: <span id="player-voice-mode" class="font-medium text-indigo-600 dark:text-indigo-400">--</span>
-                            <span id="player-voice-file-details"></span>
-                            <span class="mx-1">•</span> Gen Time: <span id="player-gen-time" class="font-medium tabular-nums">--s</span>
-                            <span class="mx-1">•</span> Duration: <span id="audio-duration" class="font-medium tabular-nums">--:--</span>
-                        </div>
-                    </div>
-                </div>
-            </div>`;
-
-        // Re-select elements after recreating them
-        const waveformDiv = audioPlayerContainer.querySelector('#waveform');
-        const playBtn = audioPlayerContainer.querySelector('#play-btn');
-        const downloadLink = audioPlayerContainer.querySelector('#download-link');
-        const playerModeSpan = audioPlayerContainer.querySelector('#player-voice-mode');
-        const playerFileSpan = audioPlayerContainer.querySelector('#player-voice-file-details');
-        const playerGenTimeSpan = audioPlayerContainer.querySelector('#player-gen-time');
-        const audioDurationSpan = audioPlayerContainer.querySelector('#audio-duration');
-
-        const audioFilename = resultDetails.filename || (typeof audioUrl === 'string' ? audioUrl.split('/').pop() : 'tts_output.wav');
-        if (downloadLink) {
-            downloadLink.href = audioUrl;
-            downloadLink.download = audioFilename;
-            const downloadTextSpan = downloadLink.querySelector('span'); // Target the span for text update
-            if (downloadTextSpan) {
-                downloadTextSpan.textContent = `Download ${audioFilename.split('.').pop().toUpperCase()}`;
-            }
-        }
-        if (playerModeSpan) playerModeSpan.textContent = resultDetails.submittedVoiceMode || currentVoiceMode || '--';
-        if (playerFileSpan) {
-            let fileDetail = '';
-            if ((resultDetails.submittedVoiceMode || currentVoiceMode) === 'clone' && resultDetails.submittedCloneFile) {
-                fileDetail = `(<span class="font-medium text-slate-700 dark:text-slate-300">${resultDetails.submittedCloneFile}</span>)`;
-            } else if ((resultDetails.submittedVoiceMode || currentVoiceMode) === 'predefined' && resultDetails.submittedPredefinedVoice) {
-                fileDetail = `(<span class="font-medium text-slate-700 dark:text-slate-300">${resultDetails.submittedPredefinedVoice}</span>)`;
-            }
-            playerFileSpan.innerHTML = fileDetail;
-        }
-        if (playerGenTimeSpan) playerGenTimeSpan.textContent = resultDetails.genTime ? `${resultDetails.genTime}s` : '--s';
-
-        const playIconSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 mr-1.5"><path fill-rule="evenodd" d="M2 10a8 8 0 1 1 16 0 8 8 0 0 1-16 0Zm6.39-2.908a.75.75 0 0 1 .766.027l3.5 2.25a.75.75 0 0 1 0 1.262l-3.5 2.25A.75.75 0 0 1 8 12.25v-4.5a.75.75 0 0 1 .39-.658Z" clip-rule="evenodd" /></svg><span>Play</span>`;
-        const pauseIconSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 mr-1.5"><path fill-rule="evenodd" d="M2 10a8 8 0 1 1 16 0 8 8 0 0 1-16 0Zm5-2.25A.75.75 0 0 1 7.75 7h4.5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-.75.75h-4.5a.75.75 0 0 1-.75-.75v-4.5Z" clip-rule="evenodd" /></svg><span>Pause</span>`;
-        const isDark = document.documentElement.classList.contains('dark');
-
-        wavesurfer = WaveSurfer.create({
-            container: waveformDiv, waveColor: isDark ? '#6366f1' : '#a5b4fc', progressColor: isDark ? '#4f46e5' : '#6366f1',
-            cursorColor: isDark ? '#cbd5e1' : '#475569', barWidth: 3, barRadius: 3, cursorWidth: 1, height: 80, barGap: 2,
-            responsive: true, url: audioUrl, mediaControls: false, normalize: true,
-        });
-
-        wavesurfer.on('ready', () => {
-            const duration = wavesurfer.getDuration();
-            if (audioDurationSpan) audioDurationSpan.textContent = formatTime(duration);
-            if (playBtn) { playBtn.disabled = false; playBtn.innerHTML = playIconSVG; }
-            if (downloadLink) { downloadLink.classList.remove('opacity-50', 'pointer-events-none'); downloadLink.setAttribute('aria-disabled', 'false'); }
-        });
-        wavesurfer.on('play', () => { if (playBtn) playBtn.innerHTML = pauseIconSVG; });
-        wavesurfer.on('pause', () => { if (playBtn) playBtn.innerHTML = playIconSVG; });
-        wavesurfer.on('finish', () => { if (playBtn) playBtn.innerHTML = playIconSVG; wavesurfer.seekTo(0); });
-        wavesurfer.on('error', (err) => {
-            console.error("WaveSurfer error:", err);
-            showNotification(`Error loading audio waveform: ${err.message || err}`, 'error');
-            if (waveformDiv) waveformDiv.innerHTML = `<p class="p-4 text-sm text-red-600 dark:text-red-400">Could not load waveform.</p>`;
-            if (playBtn) playBtn.disabled = true;
-        });
-
-        if (playBtn) {
-            playBtn.onclick = () => {
-                if (wavesurfer) {
-                    wavesurfer.playPause();
-                }
-            };
-        }
-        setTimeout(() => audioPlayerContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 150);
     }
 
     // --- TTS Generation Logic ---
@@ -1157,69 +1048,6 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 
     // --- Fetch Initial Data from Backend ---
-    async function fetchInitialData() {
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/ui/initial-data`);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const data = await response.json();
-
-            // Store configuration
-            currentConfig = data.config || {};
-
-            // Load generation defaults into sliders
-            if (currentConfig.generation_defaults) {
-                const defaults = currentConfig.generation_defaults;
-
-                if (temperatureSlider && defaults.temperature !== undefined) {
-                    temperatureSlider.value = defaults.temperature;
-                    if (temperatureValueDisplay) temperatureValueDisplay.textContent = defaults.temperature.toFixed(2);
-                }
-
-                if (exaggerationSlider && defaults.exaggeration !== undefined) {
-                    exaggerationSlider.value = defaults.exaggeration;
-                    if (exaggerationValueDisplay) exaggerationValueDisplay.textContent = defaults.exaggeration.toFixed(2);
-                }
-
-                if (cfgWeightSlider && defaults.cfg_weight !== undefined) {
-                    cfgWeightSlider.value = defaults.cfg_weight;
-                    if (cfgWeightValueDisplay) cfgWeightValueDisplay.textContent = defaults.cfg_weight.toFixed(2);
-                }
-
-                if (speedFactorSlider && defaults.speed_factor !== undefined) {
-                    speedFactorSlider.value = defaults.speed_factor;
-                    if (speedFactorValueDisplay) speedFactorValueDisplay.textContent = defaults.speed_factor.toFixed(2);
-                }
-
-                if (seedInput && defaults.seed !== undefined) {
-                    seedInput.value = defaults.seed;
-                }
-            }
-
-            // Load predefined voices
-            if (data.predefined_voices) {
-                initialPredefinedVoices = data.predefined_voices;
-                populatePredefinedVoices();
-            }
-
-            // Load reference files
-            if (data.reference_files) {
-                initialReferenceFiles = data.reference_files;
-                // populateCloneReferenceSelect(); // Function doesn't exist, skipping
-            }
-
-            // Load presets (if any)
-            if (data.presets) {
-                appPresets = data.presets;
-            }
-
-            console.log('Initial data loaded successfully');
-        } catch (error) {
-            console.error('Error fetching initial data:', error);
-            showNotification('Failed to load initial settings. Please refresh the page.', 'error');
-        }
-    }
 
     await fetchInitialData();
 });
