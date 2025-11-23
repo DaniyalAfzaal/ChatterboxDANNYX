@@ -196,7 +196,7 @@ def _split_text_by_words(text: str, max_words: int) -> list:
 @app.function(
     image=worker_image,
     gpu="L4",
-    timeout=3600,
+    timeout=10800,
     volumes={"/data": vol}
 )
 def tts_worker(job_id: str, config: dict):
